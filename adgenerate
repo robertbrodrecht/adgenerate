@@ -1,0 +1,261 @@
+#!/usr/bin/php
+<?php
+
+$ad_server = false;
+$ad_size = false;
+$output_folder = getcwd() . '/';
+
+$supported_ad_servers = [
+	'DoubleClick',
+	'Sizmek',
+	'Generic',
+	'Centro',
+];
+
+$vendor_server_relation = [
+	'Centro' => 'Sizmek'
+];
+
+$easy_ad_sizes = [
+	'160x600',
+	'300x50',
+	'300x250',
+	'300x600',
+	'320x50',
+	'700x500',
+	'728x90'
+];
+
+$files = [
+	'Sizmek' => [
+		'styles/',
+		'images/',
+		'scripts/',
+		'styles/style.css',
+		'scripts/click.js'
+	],
+	'DoubleClick' => [
+		'styles/',
+		'images/',
+		'styles/style.css'
+	],
+	'Generic' => [
+		'styles/',
+		'images/',
+		'styles/style.css'
+	]
+];
+
+sort($easy_ad_sizes);
+
+$x27 = chr(27);
+$nl = "\n";
+
+array_shift($argv);
+echo "\n";
+
+if(!is_writable($output_folder)) {
+	echo "I can't write to the current folder.  Please fix this and try again.\n\n";
+	exit;
+}
+
+foreach($argv as $arg) {
+	if(preg_match('/^\d+x\d+$/i', $arg)) {
+		$ad_size = strtolower($arg);
+	} else if($ad_server_matches = preg_grep('/' . $arg . '/i', $supported_ad_servers)) {
+		if(count($ad_server_matches) === 1) {
+			$ad_server = $ad_server_matches[0];
+		}
+	}
+}
+
+if(!$ad_server) {
+	while(!$ad_server) {
+		echo "Supported ad servers and vendors:\n";
+		foreach($supported_ad_servers as $ad_server_id => $supported_ad_server) {
+			$ad_server_id = $ad_server_id + 1;
+			echo "{$ad_server_id}. {$supported_ad_server}\n";
+		}
+		echo "\nEnter the ad server or vendor by number: ";
+	
+		$ad_server_id = (int) trim(fgets(STDIN));
+		
+		if(isset($supported_ad_servers[$ad_server_id-1])) {
+			$ad_server = $supported_ad_servers[$ad_server_id-1];
+			echo "\n";
+		} else {
+			echo "\nThat is not the number of an ad server.  Try again.\n\n";
+		}
+	}
+}
+
+if(!$ad_size) {
+	while(!$ad_size) {
+		echo "Known ad sizes:\n";
+		foreach($easy_ad_sizes as $ad_size_id => $easy_ad_size) {
+			$ad_size_id = $ad_size_id + 1;
+			echo "{$ad_size_id}. {$easy_ad_size}\n";
+		}
+		echo "\nEnter the known ad size by number or enter a custom size (e.g. 300x260): ";
+		
+		$ad_size_input = strtolower(trim(fgets(STDIN)));
+		
+		if(preg_match('/^\d+x\d+$/i', $ad_size_input)) {
+			$ad_size = $ad_size_input;
+			echo "\n";
+		} else if(isset($easy_ad_sizes[$ad_size_input-1])) {
+			$ad_size = $easy_ad_sizes[$ad_size_input-1];
+			echo "\n";
+		} else {
+			echo "\nThat is not a size we can create.  Try again.\n\n";
+		}
+	}
+}
+
+if(!file_exists($output_folder . $ad_server . '-' . $ad_size)) {
+	while(!file_exists($output_folder . $ad_server . '-' . $ad_size)) {
+		if(!mkdir($output_folder . $ad_server . '-' . $ad_size)) {
+			echo "I couldn't create the output folder.  You can create it yourself or you can check your permissions on the folder.\n";
+			echo "Please create the following: {$output_folder}{$ad_size}\n";
+			echo "Press enter when you're ready to try again.\n";
+			fgets(STDIN);
+		}
+	}
+}
+
+echo "Dope!  We're generating a {$x27}[42m {$ad_size} {$x27}[0m for {$x27}[42m {$ad_server} {$x27}[0m.\n\n";
+
+$ad_server_compat = $ad_server;
+$ad_dimensions = explode('x', $ad_size);
+
+if(isset($vendor_server_relation[$ad_server_compat])) {
+	$ad_server_compat = $vendor_server_relation[$ad_server_compat];
+}
+
+if($ad_server_compat !== $ad_server) {
+	$title = "{$ad_server_compat} Compatible {$ad_size} Ad for {$ad_server}";
+} else {
+	$title = "{$ad_server_compat} {$ad_size} Ad";
+}
+
+$template = '';
+$template .= '<!DOCTYPE html>' . $nl;
+$template .= '<html>' . $nl;
+$template .= '	<head>' . $nl;
+$template .= '		<title>' . $title . '</title>' . $nl;
+
+switch($ad_server_compat) {
+	case 'Sizmek':
+		$template .= '		<script src="http://ds.serving-sys.com/BurstingScript/EBLoader.js"></script>' . $nl;
+		$template .= '		<script src="scripts/click.js"></script>' . $nl;
+		$template .= '		<link rel="stylesheet" href="styles/style.css">' . $nl;
+	break;
+	case 'DoubleClick':
+		$template .= '		<meta name="ad.size" content="width=' . $ad_dimensions[0] . ',height=' . $ad_dimensions[1] . '">' . $nl;
+		$template .= '		<script>var clickTag = "";</script>' . $nl;
+		$template .= '		<link rel="stylesheet" href="styles/style.css">' . $nl;
+	break;
+	case 'Generic':
+		$template .= '		<link rel="stylesheet" href="styles/style.css">' . $nl;
+	break;
+}
+
+$template .= '		<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>' . $nl;
+$template .= '	</head>' . $nl;
+$template .= '	<body>' . $nl;
+
+switch($ad_server_compat) {
+	default:
+	case 'Sizmek':
+		$template .= '		<div id="overlay"></div>' . $nl;
+	break;
+	case 'DoubleClick':
+		$template .= '		<a href="javascript:window.open(window.clickTag)" id="overlay"></a>' . $nl;
+	break;
+}
+
+$template .= '		<div id="banner">' . $nl;
+$template .= '			<!-- YOUR CODE HERE -->' . $nl;
+$template .= '		</div>' . $nl;
+$template .= '	</body>' . $nl;
+$template .= '</html>';
+
+echo "Creating files:\n";
+
+$working_dir = $output_folder . $ad_server . '-' . $ad_size . '/';
+
+$f = fopen($working_dir . 'index.html', 'w');
+if($f) {
+	fwrite($f, $template);
+	fclose($f);
+} else {
+	$errors[] = 'index.html';
+}
+
+$errors = array();
+
+foreach($files[$ad_server_compat] as $file) {
+	if(substr($file, -1) === '/') {
+		if(!file_exists($working_dir . $file) && !mkdir($working_dir . $file)) {
+			$errors[] = $file;
+		} else {
+			echo "- Created {$file}\n";
+		}
+	} else {
+		$f = fopen($working_dir . $file, 'w');
+		if($f) {
+			$contents = '';
+			
+			switch($file) {
+				case 'styles/style.css':
+					$contents .= '* {' . $nl . '	-webkit-box-sizing: border-box;' . $nl . '	-moz-box-sizing: border-box;' . $nl . '	-ms-box-sizing: border-box;' . $nl . '	box-sizing: border-box;' . $nl . '	margin: 0;' . $nl . '	padding: 0;' . $nl . '}' . $nl . $nl;
+					$contents .= 'html,' . $nl . 'body {' . $nl . '	height: 100%;' . $nl . '	width: 100%' . $nl . '}' . $nl . $nl;
+					$contents .= 'body {' . $nl . '	margin: 0;' . $nl . '	overflow: hidden' . $nl . '}' . $nl . $nl;
+					$contents .= '#overlay,' . $nl . '#banner {' . $nl . '	color: inherit;' . $nl . '	height: ' . $ad_dimensions[1] . 'px;' . $nl . '	left: 0;' . $nl . '	overflow: hidden;' . $nl . '	position: absolute;' . $nl . '	text-decoration: none;' . $nl . '	top: 0;' . $nl . '	width: ' . $ad_dimensions[0] . 'px;' . $nl . '}' . $nl . $nl;
+					$contents .= '#overlay {' . $nl . '	cursor: pointer;' . $nl . '	z-index: 2' . $nl . '}' . $nl . $nl;
+					$contents .= '#banner {' . $nl . '	z-index: 1' . $nl . '}' . $nl . $nl;
+				break;
+				case 'scripts/click.js':
+					switch($ad_server_compat) {
+						case 'Sizmek':
+							$contents .= 'function registerClick() {' . $nl;
+							$contents .= '	document.getElementById("overlay").addEventListener(' . $nl;
+							$contents .= '		"click",' . $nl;
+							$contents .= '		function() {' . $nl;
+							$contents .= '			EB.clickthrough();' . $nl;
+							$contents .= '		}' . $nl;
+							$contents .= '	);' . $nl;
+							$contents .= '}' . $nl;
+							$contents .= 'window.addEventListener(' . $nl;
+							$contents .= '	"load",' . $nl;
+							$contents .= '	function() {' . $nl;
+							$contents .= '		if(!EB.isInitialized()) {' . $nl;
+							$contents .= '			EB.addEventListener(EBG.EventName.EB_INITIALIZED, registerClick);' . $nl;
+							$contents .= '		} else {' . $nl;
+							$contents .= '			registerClick();' . $nl;
+							$contents .= '		}' . $nl;
+							$contents .= '	}' . $nl;
+							$contents .= ');' . $nl;
+						break;
+					}
+				break;
+			}
+			fwrite($f, $contents);
+			fclose($f);
+			echo "- Created {$file}\n";
+		} else {
+			echo "- {$x27}[31mCould not create {$file}{$x27}[0m\n";
+			$errors[] = $file;
+		}
+	}
+}
+
+if($errors) {
+	echo "\n{$x27}[31mFailed to create files:\n";
+	foreach($errors as $e) {
+			echo "- {$e}\n";
+	}
+	echo "{$x27}[0m";
+}
+
+echo "\n\nDONE. YOU'RE WELCOME!\n\n";
