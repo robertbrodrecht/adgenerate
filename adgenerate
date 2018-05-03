@@ -22,7 +22,6 @@ $easy_ad_sizes = [
 	'300x250',
 	'300x600',
 	'320x50',
-	'700x500',
 	'728x90'
 ];
 
@@ -160,7 +159,7 @@ switch($ad_server_compat) {
 	break;
 }
 
-$template .= '		<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>' . $nl;
+//$template .= '		<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>' . $nl;
 $template .= '	</head>' . $nl;
 $template .= '	<body>' . $nl;
 
